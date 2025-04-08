@@ -1,0 +1,43 @@
+apiVersion: training.educates.dev/v1beta1
+kind: Workshop
+metadata:
+  name: spr-io-accessing-data-jpa
+spec:
+  title: Accessing Data with JPA
+  description: "Accessing Data with JPA"
+  workshop:
+    image: jdk17-environment:*
+    files:
+      - image: # Note: format is {repository-name}-files
+          url: $(image_repository)/spring-io-guides-files:$(workshop_version)
+        includePaths:
+          - /workshops/accessing-data-jpa/workshop/**
+        newRootPath: workshops/accessing-data-jpa
+      - path: .local/share/code-server
+        image:
+          url: ghcr.io/spring-academy/vscode-java-tools-$(platform_arch)-files:0.25.14
+      - path: exercises
+        git:
+          url: https://github.com/spring-academy/gs-accessing-data-jpa.git
+          ref: main
+        newRootPath: .
+  request:
+    parameters:
+    - name: USER_DOMAIN
+      value: "unknown.domain"
+    - name: USER_EMAIL
+      value: "somebody@unknown.domain"
+  session:
+    namespaces:
+      budget: medium
+    resources:
+      memory: 2Gi
+    applications:
+      terminal:
+        enabled: true
+        layout: default
+      editor:
+        enabled: true
+    dashboards:
+      - name: Editor
+      - name: Terminal

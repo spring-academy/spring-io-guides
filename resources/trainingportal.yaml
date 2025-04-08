@@ -1,0 +1,33 @@
+apiVersion: training.educates.dev/v1beta1
+kind: TrainingPortal
+metadata:
+  name: spring-io-guides
+spec:
+  portal:
+    registration:
+      type: anonymous
+    updates:
+      workshop: true
+    sessions:
+      maximum: 15
+  workshops:
+    - name: spr-io-messaging-with-rabbitmq
+      capacity: 1
+      expires: 60m
+      orphaned: 5m
+      reserved: 0
+    - name: spr-io-building-an-application-with-spring-boot
+      capacity: 1
+      expires: 60m
+      orphaned: 5m
+      reserved: 0
+    - name: spr-io-accessing-data-jpa
+      capacity: 1
+      expires: 60m
+      orphaned: 5m
+      reserved: 0
+    - name: spr-io-rest-service
+      capacity: 1
+      expires: 60m
+      orphaned: 5m
+      reserved: 0
