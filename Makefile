@@ -1,56 +1,63 @@
-REGISTRY = localhost:5001
-# NOTE: the github actions currently rely on the portal name
-# matching the respository name. Change at your own risk!
-# See https://github.com/vmware-tanzu-labs/educates-github-actions/blob/v4/publish-workshop/scripts/process-workshops.sh#L75
-PORTAL_NAME = spring-io-guides
-COURSE_NAME = spring-io-guides
-REPOSITORY_NAME = spring-io-guides
+#!make
+BUILDER ?= github
+include Makefile.$(BUILDER)
 
-# Use the default "all" target the first time you want to deploy the workshop.
 
-all: publish-workshops deploy-workshops
+build: build-date add-files-to-archive docker-lab-html
 
-# Use the "publish-workshops" target to build and publish OCI image artefacts
-# which contain the workshop content files for each workshop. The artefact will
-# be pushed to the configured image registry.
+.PHONY: help build release add-files-to-archive docker-lab-html Makefile releaseclean get-reporeg get-name deploy
 
-publish-workshops:
-	imgpkg push -i $(REGISTRY)/$(COURSE_NAME)-files:latest -f .
+add-files-to-archive:
+	cp -r labs/* build
+	for d in build/*; do \
+	  tar -czvf build/`cat $$d/WORKSHOP_ID`.tar.gz -C $$d .; \
+	done
 
-# Use the "deploy-workshops" target to deploy the workshop to your Kubernetes
-# cluster. This will wait for the deployment of the training portal to be
-# completed before returning.
+	mkdir -p build/educates-resources
+	cp -r resources/* build/educates-resources
+	for f in build/educates-resources/apply/*; do \
+	  VERSION=${version} CONTAINER_REGISTRY=${CONTAINER_REGISTRY} CONTAINER_REPOSITORY=${CONTAINER_REPOSITORY} envsubst '$${VERSION} $${CONTAINER_REGISTRY} $${CONTAINER_REPOSITORY}' < $$f > $$f.resolved; \
+	  mv $$f.resolved $$f; \
+	done
 
-deploy-workshops: update-workshops
-	kubectl apply -f resources/trainingportal.yaml
-	STATUS=1; ATTEMPTS=0; ROLLOUT_STATUS_CMD="kubectl rollout status deployment/training-portal -n $(PORTAL_NAME)-ui"; until [ $$STATUS -eq 0 ] || $$ROLLOUT_STATUS_CMD || [ $$ATTEMPTS -eq 5 ]; do sleep 5; $$ROLLOUT_STATUS_CMD; STATUS=$$?; ATTEMPTS=$$((ATTEMPTS + 1)); done
+build-date:
+	rm -rf build
+	# This ensures there is always a build directory with an asset to upload
+	mkdir -p build
 
-# Use the "update-workshop" target to update the workshop definition. When the
-# training portal is configured to detect changes to the workshop definition
-# the existing workshop environment will be shutdown and a new one created which
-# uses the new workshop definition.
+docker-lab-html:
 
-update-workshops:
-	scripts/deploy-local-workshops.sh
+	docker build --build-arg VERSION="${version}" \
+				 -t "${CONTAINER_REPOSITORY}:${version}" \
+				 -t "${CONTAINER_REGISTRY}${CONTAINER_REPOSITORY}:${version}" \
+				 -t "${CONTAINER_REGISTRY}${CONTAINER_REPOSITORY}:${env}" \
+				 .
 
-# Use the "delete-workshops" target to delete the workshop from your Kubernetes
-# cluster. This will wait for the deployment of the training portal to be
-# finished before returning.
+	docker image prune -f
 
-delete-workshops:
-	-kubectl delete -f resources/trainingportal.yaml --cascade=foreground
-	-for file in workshops/*/resources/workshop.yaml; do kubectl delete -f $$file; done
+docker-lab-html-reporeg:
+	@echo "${CONTAINER_REGISTRY}${CONTAINER_REPOSITORY}"
 
-# Use the "open-workshops" target to open a web browser on the training portal
-# which provides access to the workshop.
+release:
+	docker tag ${CONTAINER_REGISTRY}${CONTAINER_REPOSITORY}:${version} ${CONTAINER_REGISTRY}${CONTAINER_REPOSITORY}:latest
+	docker push ${CONTAINER_REGISTRY}${CONTAINER_REPOSITORY}:${version}
+	docker push ${CONTAINER_REGISTRY}${CONTAINER_REPOSITORY}:latest
 
-open-workshops:
-	URL=`kubectl get trainingportal/$(PORTAL_NAME) -o go-template={{.status.educates.url}}`; (test -x /usr/bin/xdg-open && xdg-open $$URL) || (test -x /usr/bin/open && open $$URL) || true
+deploy-lab:
+	docker pull ${CONTAINER_REGISTRY}${CONTAINER_REPOSITORY}:${version}
+	docker tag ${CONTAINER_REGISTRY}${CONTAINER_REPOSITORY}:${version} ${CONTAINER_REGISTRY}${CONTAINER_REPOSITORY}:${environment}
+	docker push ${CONTAINER_REGISTRY}${CONTAINER_REPOSITORY}:${environment}
 
-deploy-guides:
-	metadata/deploy.sh deploy-guides
+deploy-lab-local:
+	kubectl apply -f build/educates-resources/apply
+	source build/educates-resources/env."${environment}"
+	envsubst '$${ENVIRONMENT}' < build/educates-resources/apply/trainingportal.yaml | kubectl apply -f -
 
-deploy: deploy-guides
+deploy-lms:
+	metadata/lms/deploy.sh deploy-all
 
-deploy-local:
-	PENGUIN_USEDOCKER="false" metadata/deploy.sh deploy-guides
+get-reporeg:
+	@echo "${CONTAINER_REGISTRY}${CONTAINER_REPOSITORY}"
+
+get-name:
+	@echo "${NAME}"
