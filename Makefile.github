@@ -5,4 +5,4 @@ CONTAINER_REGISTRY    = ghcr.io/spring-academy/
 CONTAINER_REPOSITORY  = spring-io-guides
 version               = latest
 
-env                   = local
+env                   = github
