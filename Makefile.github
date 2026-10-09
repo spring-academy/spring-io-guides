@@ -1,0 +1,8 @@
+DIR_LAB               = lab
+NAME                  = spring-io-guides
+IMAGE_SOURCE          = https://github.com/spring-academy/spring-io-guides
+CONTAINER_REGISTRY    = ghcr.io/spring-academy/
+CONTAINER_REPOSITORY  = spring-io-guides
+version               = latest
+
+env                   = local
